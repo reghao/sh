@@ -1,0 +1,83 @@
+global:
+  resolve_timeout: 5m
+  # smtp 配置
+  smtp_smarthost: 'smtp.163.com:25'
+  smtp_from: "test@163.com"
+  smtp_auth_username: "test@163.com"
+  smtp_auth_password: "test123456"
+  smtp_require_tls: false
+# email 模板配置存放位置
+templates:
+  - '/opt/alertmanager/templates/*.tmpl'
+# 接收器指定发送人以及发送渠道
+receivers:
+# 定义 ops 分组
+- name: ops
+  # 邮箱配置
+  email_configs:
+  - to: 'reghaodev@gmail.com'
+    headers:
+      subject: "[operations] 告警邮件"
+      from: "告警中心"
+      to: "ops"
+    # 告警状态从"触发(firing)"变为"解决(resolved)"时, 告知相关人员问题已被解决或已恢复正常
+    send_resolved: true
+  # webhook 配置
+  webhook_configs:
+  - url: http://192.168.0.108:6002/api/message/webhook/ding
+    send_resolved: true
+  # 企业微信配置
+  wechat_configs:
+  - corp_id: 'ww5421dksajhdasjkhj'
+    api_url: 'https://qyapi.weixin.qq.com/cgi-bin/'
+    send_resolved: true
+    to_party: '2'
+    agent_id: '1000002'
+    api_secret: 'Tm1kkEE3RGqVhv5hO-khdakjsdkjsahjkdksahjkdsahkj'
+# 路由配置
+route:
+  # 默认接收组
+  receiver: ops
+  # 组内信息告警等待时间, 30 秒内出现的相同告警会在一个组中出现
+  group_wait: 30s
+  # 告警发送间隔  如果组内内容不变化，合并为一条告警信息，5m后发送
+  group_interval: 5m
+  # 告警重复发送间隔, 如果指定时间内没有修复, 则重新发送告警
+  repeat_interval: 24h
+  # 根据 alertname 对告警进行分组
+  group_by: [alertname]
+  # 根据匹配结果路由到相应的接收组
+  routes:
+      - receiver: 'ops'
+        # 正则匹配 alertname, 这里表示所有告警都发送到 ops
+        match_re:
+          alertname: '.*'
+      - receiver: 'ops'
+        match_re:
+          job: 'zk-cluster'
+      - receiver: 'ops'
+        match:
+          team: operations
+        group_by: [env,dc]
+      - receiver: 'web'
+        match_re:
+          service: nginx|apache
+      - receiver: ops
+        group_wait: 10s
+        match:
+          status: 'High'
+      - receiver: ops
+        group_wait: 10s
+        match:
+          team: operations
+# 抑制规则
+inhibit_rules:
+  # 源标签告警触发时抑制含有目标标签的告警，在当前告警匹配 status: 'High'
+  # 此处的抑制匹配一定要在前面的 route 中配置, 否则会提示找不 key
+  - source_match:
+      status: 'High'
+    # 目标标签值正则匹配, 可以是如: ".*MySQL.*" 的正则表达式
+    # 确保这个配置下的标签内容相同才会抑制, 即告警中必须有这三个标签值才会被抑制
+    target_match:
+      status: 'Warning'
+    equal: ['alertname','operations', 'instance']
