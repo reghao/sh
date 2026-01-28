@@ -1,0 +1,131 @@
+groups:
+- name: MySQLStatsAlert
+  rules:
+  - alert: MySQL is down
+    expr: mysql_up == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Instance {{ $labels.instance }} MySQL is down"
+      description: "MySQL database is down. This requires immediate action!"
+
+  - alert: open files is high
+    expr: mysql_global_status_innodb_num_open_files > (mysql_global_variables_open_files_limit) * 0.75
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Instance {{ $labels.instance }} open files high"
+      description: "Open files is high. Please consider increasing open_files_limit."
+
+  - alert: Read buffer size is bigger than max. allowed packet size
+    expr: mysql_global_variables_read_buffer_size > mysql_global_variables_slave_max_allowed_packet
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Instance {{ $labels.instance }} Read buffer size is bigger than max. allowed packet size"
+      description: "Read buffer size (read_buffer_size) is bigger than max. allowed packet size (max_allowed_packet).This can break your replication."
+
+  - alert: Thread stack size is too small
+    expr: mysql_global_variables_thread_stack <196608
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Instance {{ $labels.instance }} Thread stack size is too small"
+      description: "Thread stack size is too small. This can cause problems when you use Stored Language constructs for example. A typical is 256k for thread_stack_size."
+
+  - alert: Used more than 80% of max connections is limited
+    expr: mysql_global_status_max_used_connections > mysql_global_variables_max_connections * 0.8
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      summary: "Instance {{ $labels.instance }} Used more than 80% of max connections limited"
+      description: "Used more than 80% of max connections limited"
+
+  - alert: Table open cache too small
+    expr: mysql_global_status_open_tables >mysql_global_variables_table_open_cache * 99/100
+    for: 1m
+    labels:
+      severity: page
+    annotations:
+      summary: "Instance {{ $labels.instance }} Table open cache too small"
+      description: "Your Table Open Cache is possibly too small (old name Table Cache). If it is much too small this can have significant performance impacts!"
+
+  - alert: Thread stack size is possibly too small
+    expr: mysql_global_variables_thread_stack < 262144
+    for: 1m
+    labels:
+      severity: page
+    annotations:
+      summary: "Instance {{ $labels.instance }} Thread stack size is possibly too small"
+      description: "Thread stack size is possibly too small. This can cause problems when you use Stored Language constructs for example. A typical is 256k for thread_stack_size."
+
+  - alert: InnoDB Buffer Pool Instances is too small
+    expr: mysql_global_variables_innodb_buffer_pool_instances == 1
+    for: 1m
+    labels:
+      severity: page
+    annotations:
+      summary: "Instance {{ $labels.instance }} InnoDB Buffer Pool Instances is too small"
+      description: "If you are using MySQL 5.5 and higher you should use several InnoDB Buffer Pool Instances for performance reasons. Some rules are: InnoDB Buffer Pool Instance should be at least 1 Gbyte in size. InnoDB Buffer Pool Instances you can set equal to the number of cores of your machine."
+
+  - alert: Binlog Statement Cache size too small
+    expr: mysql_global_variables_binlog_stmt_cache_size <1048576 and mysql_global_variables_binlog_stmt_cache_size > 0
+    for: 1m
+    labels:
+      severity: page
+    annotations:
+      summary: "Instance {{ $labels.instance }} Binlog Statement Cache size too small"
+      description: "Binlog Statement Cache size is possibly to small. A value of 1 Mbyte or higher is typically OK."
+
+  - alert: IO thread stopped
+    expr: mysql_slave_status_slave_io_running != 1
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Instance {{ $labels.instance }} IO thread stopped"
+      description: "IO thread has stopped. This is usually because it cannot connect to the Master any more."
+
+  - alert: SQL thread stopped
+    expr: mysql_slave_status_slave_sql_running == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      summary: "Instance {{ $labels.instance }} SQL thread stopped"
+      description: "SQL thread has stopped. This is usually because it cannot apply a SQL statement received from the master."
+
+  # mysql主从延时状态告警
+  - alert: MySQL Slave Delay Status 
+    expr: mysql_slave_status_sql_delay == 30
+    for: 5s 
+    labels:
+      severity: warning
+    annotations: 
+      summary: "{{$labels.instance}}: MySQL 主从延迟超过 30s !!!"
+      description: "检测MySQL主从延时状态"
+      
+  # mysql连接数告警
+  - alert: Mysql_Too_Many_Connections
+    expr: rate(mysql_global_status_threads_connected[5m]) > 200
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: "{{$labels.instance}}: 连接数过多"
+      description: "{{$labels.instance}}: 连接数过多，请处理 ,(current value is: {{ $value }})！"  
+ 
+  # mysql慢查询有点多告警
+  - alert: Mysql_Too_Many_slow_queries
+    expr: rate(mysql_global_status_slow_queries[5m]) > 3
+    for: 2m
+    labels:
+      severity: warning
+    annotations:
+      summary: "{{$labels.instance}}: 慢查询有点多，请检查处理！"
+      description: "{{$labels.instance}}: Mysql slow_queries is more than 3 per second ,(current value is: {{ $value }})"

@@ -13,6 +13,8 @@ mkdir -p ${host_datadir1}
 chmod -R go+w ${host_datadir}
 chmod -R go+w ${host_datadir1}
 
+cp prometheus/prometheus.yml ${host_confdir}
+cp prometheus/rules/* ${host_datadir1}
 host_conf=${host_confdir}'/prometheus.yml'
 
 docker run -d --name=prometheus --restart=always --network=host \
